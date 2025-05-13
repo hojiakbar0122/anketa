@@ -1,13 +1,14 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { CreateAdminDto } from './dto/create-admin.dto';
 import { UpdateAdminDto } from './dto/update-admin.dto';
 import { InjectModel } from '@nestjs/sequelize';
 import { Admin } from './models/admin.model';
-import * as bcrypt from "bcrypt"
+import * as bcrypt from "bcrypt";
 
 @Injectable()
 export class AdminsService {
-  constructor(@InjectModel(Admin) private readonly adminModel:typeof Admin){}
+  constructor(@InjectModel(Admin) private readonly adminModel:typeof Admin,
+){}
 
   async create(createAdminDto: CreateAdminDto) {
     const { password, confirm_password } = createAdminDto;
@@ -25,12 +26,8 @@ export class AdminsService {
     return newAdmin;
   }
 
-  async findByEmail(email: string) {
-    return this.adminModel.findOne({ where: { email } });
-  }
-
   findAll() {
-    return `This action returns all admins`;
+    return this.adminModel.findAll();
   }
 
   findOne(id: number) {
@@ -38,20 +35,25 @@ export class AdminsService {
   }
 
   update(id: number, updateAdminDto: UpdateAdminDto) {
-    return `This action updates a #${id} admin`;
+    return this.adminModel.update(updateAdminDto, {where:{id}});
   }
 
   remove(id: number) {
-    return `This action removes a #${id} admin`;
+    return this.adminModel.destroy({where:{id}});
   }
 
-  async updateRefreshToken(id: number, hashed_refresh_token: string) {
-    const updatedAdmin = await this.adminModel.update(
-      {
-        hashed_refresh_token,
-      },
-      { where: { id } }
-    );
-    return updatedAdmin
+  async findByEmail(email: string) {
+    return this.adminModel.findOne({ where: { email } });
   }
+
+    async updateRefreshToken(id: number, refresh_token: string) {
+      const updatedAdmin = await this.adminModel.update(
+        {
+          refresh_token,
+        },
+        { where: { id } }
+      );
+  
+      return updatedAdmin;
+    }
 }

@@ -1,11 +1,12 @@
 import { Column, DataType, Model, Table } from "sequelize-typescript";
 
 interface IAdminCreationAttr {
-  full_name: string;
-  username: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
   email: string;
   hashed_password: string;
-  is_creater: boolean;
+  is_creator: boolean;
   is_active: boolean;
 }
 
@@ -19,20 +20,23 @@ export class Admin extends Model<Admin, IAdminCreationAttr> {
   declare id: number;
 
   @Column({
-    type: DataType.STRING(50),
-    allowNull: false,
+    type: DataType.STRING,
   })
-  declare full_name: string;
+  declare first_name: string;
 
   @Column({
-    type: DataType.STRING(20),
+    type: DataType.STRING,
   })
-  declare username: string;
+  declare last_name: string;
 
   @Column({
-    type: DataType.STRING(50),
-    unique: true,
-    allowNull: false,
+    type: DataType.STRING,
+  })
+  declare phone: string;
+
+  @Column({
+    type: DataType.STRING,
+    // unique:true
   })
   declare email: string;
 
@@ -44,16 +48,21 @@ export class Admin extends Model<Admin, IAdminCreationAttr> {
   @Column({
     type: DataType.STRING,
   })
-  declare hashed_refresh_token: string;
+  declare refresh_token: string;
 
   @Column({
     type: DataType.BOOLEAN,
   })
-  declare is_creater: boolean;
+  declare is_creator: boolean;
 
   @Column({
     type: DataType.BOOLEAN,
-    defaultValue: false,
   })
   declare is_active: boolean;
+
+  @Column({
+    type:DataType.UUID,
+    defaultValue:DataType.UUIDV4()
+  })
+  declare activation_link: string
 }

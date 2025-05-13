@@ -10,6 +10,7 @@ import * as bcrypt from "bcrypt";
 import { Response } from "express";
 import { AdminsService } from "../admins.service";
 import { Admin } from "../models/admin.model";
+import { CreateAdminDto } from "../dto/create-admin.dto";
 
 @Injectable()
 export class AuthService {
@@ -21,18 +22,18 @@ export class AuthService {
   async generateTokens(admin: Admin) {
     const payload = {
       id: admin.id,
-      is_creater: admin.is_creater,
-      is_active: admin.is_active,
+      is_creator: admin.is_creator,
+      email: admin.email,
     };
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
-        secret: process.env.ADMIN_ACCESS_TOKEN_KEY,
-        expiresIn: process.env.ADMIN_ACCESS_TOKEN_TIME,
+        secret: process.env.ACCESS_TOKEN_KEY,
+        expiresIn: process.env.ACCESS_TOKEN_TIME,
       }),
       this.jwtService.signAsync(payload, {
-        secret: process.env.ADMIN_REFRESH_TOKEN_KEY,
-        expiresIn: process.env.ADMIN_REFRESH_TOKEN_TIME,
+        secret: process.env.REFRESH_TOKEN_KEY,
+        expiresIn: process.env.REFRESH_TOKEN_TIME,
       }),
     ]);
     return {
@@ -41,12 +42,25 @@ export class AuthService {
     };
   }
 
+  async signUp(createAdminDto: CreateAdminDto) {
+    const doctor = await this.adminsService.findByEmail(createAdminDto.email);
+    if (doctor) {
+      throw new ConflictException({
+        message: "Bunday Emailli Admin mavjud",
+      });
+    }
+    const newAdmin = await this.adminsService.create(createAdminDto);
+    return { message: "Admin qo'shildi", adminId: newAdmin.id };
+  }
+
   async signIn(signInDto: SignInDto, res: Response) {
     const admin = await this.adminsService.findByEmail(signInDto.email);
     if (!admin) {
       throw new BadRequestException({ message: "Email yoki Password Notgiri" });
     }
-   
+    if (!admin.is_active) {
+      throw new BadRequestException({ message: "Avval Emailni Tasdiqlang" });
+    }
     const isValidPassword = await bcrypt.compare(
       signInDto.password,
       admin.hashed_password
@@ -57,26 +71,25 @@ export class AuthService {
     const { accessToken, refreshToken } = await this.generateTokens(admin);
     res.cookie("refresh_token", refreshToken, {
       httpOnly: true,
-      maxAge: Number(process.env.ADMIN_COOKIE_TIME),
+      maxAge: Number(process.env.COOKIE_TIME),
     });
-    admin.hashed_refresh_token = await bcrypt.hash(refreshToken, 7);
     await admin.save();
     return { message: "Tizimga hush kelibsiz", accessToken };
   }
 
   async signOut(refreshToken: string, res: Response) {
     const adminData = await this.jwtService.verify(refreshToken, {
-      secret: process.env.ADMIN_REFRESH_TOKEN_KEY,
+      secret: process.env.REFRESH_TOKEN_KEY,
     });
 
     if (!adminData) {
       throw new ForbiddenException("Admin not verified");
     }
 
-    const hashed_refresh_token = null;
+    const refresh_token = null;
     await this.adminsService.updateRefreshToken(
       adminData.id,
-      hashed_refresh_token!
+      refresh_token!
     );
 
     res.clearCookie("refresh_token");
@@ -89,8 +102,6 @@ export class AuthService {
 
   async refreshToken(adminId: number, refresh_token: string, res: Response) {
     const decodedToken = await this.jwtService.decode(refresh_token);
-    console.log(adminId);
-    console.log(decodedToken["id"]);
 
     if (adminId !== decodedToken["id"]) {
       throw new BadRequestException("Ruxsat etilmagan");
@@ -98,13 +109,13 @@ export class AuthService {
 
     const admin = await this.adminsService.findOne(adminId);
 
-    if (!admin || !admin.hashed_refresh_token) {
+    if (!admin || !admin.refresh_token) {
       throw new BadRequestException("Admin not found");
     }
 
     const tokenMatch = await bcrypt.compare(
       refresh_token,
-      admin.hashed_refresh_token
+      admin.refresh_token
     );
 
     if (!tokenMatch) {
@@ -112,11 +123,10 @@ export class AuthService {
     }
 
     const { accessToken, refreshToken } = await this.generateTokens(admin);
-    const hashed_refresh_token = await bcrypt.hash(refreshToken, 7);
-    await this.adminsService.updateRefreshToken(admin.id, hashed_refresh_token);
+    await this.adminsService.updateRefreshToken(admin.id, refresh_token);
 
     res.cookie("refresh_token", refreshToken, {
-      maxAge: Number(process.env.ADMIN_COOKIE_TIME),
+      maxAge: Number(process.env.COOKIE_TIME),
       httpOnly: true,
     });
 

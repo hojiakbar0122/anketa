@@ -2,11 +2,19 @@ import { Body, Controller, HttpCode, Param, ParseIntPipe, Post, Res } from "@nes
 import { AuthService } from "./auth.service";
 import { SignInDto } from "./dto/sign-in.dto";
 import { Response } from "express";
-import { CookieGetter } from "../common/decorators/cookie-getter.decorator";
+import { CookieGetter } from "../../common/decorators/cookie-getter.decorator";
+import { CreateAdminDto } from "../dto/create-admin.dto";
+import { ApiTags } from "@nestjs/swagger";
 
-@Controller("auth")
-export class AuthController {
+@ApiTags('admin-auth')
+@Controller("admin-auth")
+export class AdminAuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Post("sign-up")
+  async signUp(@Body() createAdminDto: CreateAdminDto) {
+    return this.authService.signUp(createAdminDto);
+  }
 
   @Post("sign-in")
   async signIn(
